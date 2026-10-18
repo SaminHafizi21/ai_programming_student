@@ -6,9 +6,9 @@
     "PATH": "/opt/venv/bin:${containerEnv:PATH}",
     "UV_PROJECT_ENVIRONMENT": "/opt/venv" // creates a virtual environment
   },
-  // mounts are needed to make ssh keys available with correct permissions
+  // mounts are needed to make ssh keys available with co>rrect permissions
   "mounts": [
-    "source=${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached" 
+    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached" 
   ],
   "updateContentCommand": "uv sync",
   // git is installed, the git config files reed the right permissions to work with ssh keys

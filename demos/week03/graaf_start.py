@@ -65,7 +65,15 @@ class Node:
 
 def bouw_nodes(graaf: dict[str, list[str]]) -> dict[str, Node]:
     """Vertaal de adjacency-dict naar Node-objecten met acties."""
-    pass
+    nodes = {
+        stad: Node[State(stad)] for stad in graaf
+    }  # elke stad in die graaf zit, maak een sted van met node
+
+    for stad, buurnodes in graaf.item():
+        # buren toevoegen
+        for buur in buurnodes:
+            nodes[stad].add_action(nodes[buur])
+    return nodes
 
 
 def reconstruct_pad(node: Node) -> list[str]:
