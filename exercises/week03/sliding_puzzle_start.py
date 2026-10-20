@@ -17,33 +17,22 @@ class SlidingPuzzle:
         self.Game = np.array(game)
 
     def possible_new_configurations(self):
-        rij, kol = self.locate_empty()
-        conf_list = []
-        # omhoog
-        if rij > 0:
-            kopie = self.duplicate()
-            kopie.Game[rij][kol] = self.Game[rij - 1][kol]
-            conf_list.append(kopie)
 
-        # omlaag
-        if rij < self.GRIDSIZE - 1:
-            kopie = self.duplicate()
-            kopie.Game[rij][kol] = self.Game[rij + 1][kol]
-            conf_list.append(kopie)
+        config = []
+        row, col = self.locate_empty()
 
-        # rechts
-        if kol > 0:
-            kopie = self.duplicate()
-            kopie.Game[rij][kol] = self.Game[rij][kol - 1]
-            conf_list.append(kopie)
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            r = row + dr
+            c = col + dc
 
-        # links
-        if kol < self.GRIDSIZE - 1:
-            kopie = self.duplicate()
-            kopie.Game[rij][kol] = self.Game[rij][kol + 1]
-            conf_list.append(kopie)
+            if (r < self.GRIDSIZE and r >= 0) and (c < self.GRIDSIZE and c >= 0):
+                nieuw = self.duplicate()
+                nieuw.Game[row][col] = nieuw.Game[r][c]
+                nieuw.Game[r][c] = self.EMPTY
 
-        return conf_list
+                config.append(nieuw)
+
+        return config
 
     def locate_empty(self):
         for row in range(self.GRIDSIZE):
@@ -76,7 +65,12 @@ class SlidingPuzzle:
 
 def solve_puzzle(start_puzzle):
     # TODO: los de puzzel op met BFS
-    pass
+    # pass
+    if start_puzzle.is_goal():
+        return [start_puzzle]
+
+    frontier = {[start_puzzle]}
+    nodes = {}
 
 
 if __name__ == "__main__":

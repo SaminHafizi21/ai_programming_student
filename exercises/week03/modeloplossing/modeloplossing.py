@@ -6,6 +6,7 @@ Oefening 2: Sliding Puzzle (8-puzzle)
 Oefening 3: Maze met DFS
 Oefening 4: Dijkstra
 """
+
 import heapq
 from collections import deque
 
@@ -51,7 +52,7 @@ def breadth_first_search(initial_node: Node, goal_state: State):
         for kind in current.Actions:
             if kind in explored or kind in parent:
                 continue
-            parent[kind] = current
+            parent[kind] = current  # parent van het kind(B) is currentNodeA
             if kind.state.name == goal_state.name:
                 # pad reconstrueren via parent-links (backward)
                 pad = [kind.state]
@@ -133,8 +134,10 @@ class SlidingPuzzle:
     def duplicate(self):
         """Maak een diepe kopie van deze puzzel."""
         return SlidingPuzzle(
-            [[self.Game[r][c] for c in range(self.GRIDSIZE)]
-             for r in range(self.GRIDSIZE)]
+            [
+                [self.Game[r][c] for c in range(self.GRIDSIZE)]
+                for r in range(self.GRIDSIZE)
+            ]
         )
 
     def log(self):
@@ -193,11 +196,11 @@ class Maze:
         self.start = start
         self.end = end
         self.maze = np.zeros(size, dtype=str)
-        self.maze[:, :] = '.'
-        self.maze[start] = 'S'
-        self.maze[end] = 'E'
+        self.maze[:, :] = "."
+        self.maze[start] = "S"
+        self.maze[end] = "E"
         for wall in walls:
-            self.maze[wall] = '#'
+            self.maze[wall] = "#"
 
     def valid_moves(self, current) -> list:
         """Geef de (rij, kolom)-buren die binnen het grid liggen
@@ -207,7 +210,7 @@ class Maze:
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             r, c = rij + dr, kolom + dc
             if 0 <= r < self.size[0] and 0 <= c < self.size[1]:
-                if self.maze[r][c] != '#':
+                if self.maze[r][c] != "#":
                     moves.append((r, c))
         return moves
 
@@ -224,7 +227,7 @@ class Maze:
     def print_maze(self):
         """Print het maze."""
         for row in self.maze:
-            print(' '.join(str(x) for x in row))
+            print(" ".join(str(x) for x in row))
 
 
 def find_path(maze: Maze):
@@ -276,7 +279,7 @@ class Problem:
     def read_from_file(filepath):
         """Lees een graafbestand in en maak er een Problem van."""
         known_nodes = {}
-        with open(filepath, 'r') as file:
+        with open(filepath, "r") as file:
             from_node = file.readline().strip()
             to_node = file.readline().strip()
             initial_node = Problem.get_or_create(known_nodes, from_node)
@@ -337,6 +340,7 @@ def dijkstra(problem: Problem):
         if current in visited:
             continue
         visited.add(current)
+
         if current is goal_node:
             pad = Path(goal_node)
             ketting = []
@@ -352,8 +356,7 @@ def dijkstra(problem: Problem):
         for edge in current.Actions:
             buur = edge.ToNode
             nieuwe_kost = huidige_kost + edge.Cost
-            if buur not in visited and nieuwe_kost < afstand.get(
-                    buur, float('inf')):
+            if buur not in visited and nieuwe_kost < afstand.get(buur, float("inf")):
                 afstand[buur] = nieuwe_kost
                 parent[buur] = current
                 heapq.heappush(heap, (nieuwe_kost, buur))
@@ -384,10 +387,31 @@ if __name__ == "__main__":
     print("Zetten:", len(oplossing) - 1 if oplossing else "geen oplossing")
 
     # ---- Oefening 3: Maze met DFS ----
-    muren = [(2, 1), (2, 2), (2, 3), (4, 6), (6, 6), (7, 6), (8, 6),
-             (4, 7), (4, 8), (5, 2), (6, 2), (4, 2), (3, 2),
-             (8, 0), (9, 6), (1, 8), (2, 8), (6, 9), (7, 9),
-             (3, 6), (3, 7), (4, 1), (5, 1)]
+    muren = [
+        (2, 1),
+        (2, 2),
+        (2, 3),
+        (4, 6),
+        (6, 6),
+        (7, 6),
+        (8, 6),
+        (4, 7),
+        (4, 8),
+        (5, 2),
+        (6, 2),
+        (4, 2),
+        (3, 2),
+        (8, 0),
+        (9, 6),
+        (1, 8),
+        (2, 8),
+        (6, 9),
+        (7, 9),
+        (3, 6),
+        (3, 7),
+        (4, 1),
+        (5, 1),
+    ]
     mijn_maze = Maze((10, 10), (0, 0), (9, 9), muren)
     maze_pad, stappen = find_path(mijn_maze)
     print("Maze-pad:", maze_pad)

@@ -3,6 +3,7 @@ Oefening 4: Dijkstra
 =====================
 Implementeer Dijkstra voor kortste pad in een gewogen graaf.
 """
+
 import heapq
 
 
@@ -35,7 +36,7 @@ class Problem:
     @staticmethod
     def read_from_file(filepath):
         known_nodes = {}
-        with open(filepath, 'r') as file:
+        with open(filepath, "r") as file:
             from_node = file.readline().strip()
             to_node = file.readline().strip()
             initial_node = Problem.get_or_create(known_nodes, from_node)
@@ -79,7 +80,30 @@ class Path:
 
 def dijkstra(problem):
     # TODO: implementeer Dijkstra met een priority queue (heapq)
-    pass
+
+    start_node = problem.InitialState
+    goal_node = problem.InitialState
+
+    afstand = {start_node: 0.0}
+    parent = {start_node: None}
+    visited = set()
+    heap = [(0.0, start_node)]
+
+    while heap:
+        huidige_kost, current_node = heapq.heappop(heap)
+        if current_node in visited:
+            continue
+
+        if current_node is goal_node:
+            pad = Path(goal_node)
+            ketting = []
+
+            stap = current_node
+
+            while stap is not None:
+                ketting.append(stap)
+                stap = parent[stap]
+            ketting.reverse()
 
 
 # Maak een testgraafbestand aan
