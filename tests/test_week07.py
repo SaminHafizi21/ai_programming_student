@@ -1,9 +1,9 @@
 """
-Week 07 Autograder: Mini Othello met Minimax & Utility.
+Week 07 Autograder: TicTacToe met Minimax & Alpha-Beta.
 
 Test de publieke interface van de oplossing van de student:
-- Othello: __init__, is_valid_move, make_move, opponent, count_pieces,
-  valid_moves, random_move, evaluate, minimax, best_move
+- TicTacToe: __init__, is_valid_move, make_move, undo_move,
+  possible_moves, check_winner, is_draw, minimax, find_best_move
 
 De tests controleren enkel gedrag, niet hoe het geïmplementeerd is.
 Studentencode die crasht of infinite loopt wordt netjes afgehandeld.
@@ -15,14 +15,14 @@ import threading
 
 import pytest
 
-MODULE_PATH = "exercises.week07.othello_start"
+MODULE_PATH = "exercises.week07.solution"
 
 try:
     _mod = importlib.import_module(MODULE_PATH)
-    Othello = _mod.Othello
+    TicTacToe = _mod.TicTacToe
 except Exception as import_error:
     pytest.skip(
-        f"othello_start.py kon niet geïmporteerd worden: {import_error}",
+        f"solution.py kon niet geïmporteerd worden: {import_error}",
         allow_module_level=True,
     )
 
@@ -30,14 +30,19 @@ WEIGHTS = {
     "test_bord_init": 1,
     "test_is_valid_move": 1,
     "test_make_move": 1,
-    "test_opponent": 1,
-    "test_count_pieces": 1,
-    "test_valid_moves_start": 1,
-    "test_random_move": 2,
-    "test_evaluate": 2,
-    "test_minimax_diepte_0": 1,
-    "test_minimax_simuleert_zetten": 2,
-    "test_best_move": 2,
+    "test_check_winner_rijen": 1,
+    "test_check_winner_kolommen": 1,
+    "test_check_winner_diagonalen": 1,
+    "test_check_winner_geen_winnaar": 1,
+    "test_is_draw": 1,
+    "test_possible_moves": 1,
+    "test_undo_move": 1,
+    "test_minimax_basis_scores": 1,
+    "test_minimax_forceert_win": 2,
+    "test_minimax_alpha_beta_gelijk": 2,
+    "test_minimax_depthlimit": 2,
+    "test_find_best_move_wint": 2,
+    "test_find_best_move_blokkeert": 2,
 }
 
 
@@ -63,202 +68,240 @@ def time_limit(seconds: int = 5):
         timer.cancel()
 
 
+def _maak_bord(bezetting):
+    """Hulpfunctie: maak een TicTacToe-bord met gegeven bezetting.
+
+    `bezetting` is een dict {(r, c): 'X'|'O'} met de stenen die al staan.
+    """
+    spel = TicTacToe()
+    for (r, c), speler in bezetting.items():
+        spel.board[r][c] = speler
+    return spel
+
+
 # =============== Bord-initialisatie ===============
 
 
 def test_bord_init():
-    """Het bord is 8x8 met de startpositie (O op 3,3/4,4; X op 3,4/4,3)."""
-    spel = Othello()
+    """Het bord is 3x3 met alle velden leeg."""
+    spel = TicTacToe()
     with time_limit():
-        assert len(spel.board) == 8, "bord moet 8 rijen hebben"
+        assert len(spel.board) == 3
         for rij in spel.board:
-            assert len(rij) == 8, "elke rij moet 8 kolommen hebben"
-
-        # Startpositie controleren
-        assert spel.board[3][3] == "O"
-        assert spel.board[4][4] == "O"
-        assert spel.board[3][4] == "X"
-        assert spel.board[4][3] == "X"
-
-        # Alle andere velden leeg
-        for r in range(8):
-            for c in range(8):
-                if (r, c) in [(3, 3), (4, 4), (3, 4), (4, 3)]:
-                    continue
-                assert spel.board[r][c] == " ", f"veld ({r},{c}) moet leeg zijn"
+            assert len(rij) == 3
+            for veld in rij:
+                assert veld == " ", f"veld moet leeg zijn, kreeg '{veld}'"
 
 
 # =============== is_valid_move ===============
 
 
 def test_is_valid_move():
-    """is_valid_move keurt ongeldige zetten af en geldige goed."""
-    spel = Othello()
+    """is_valid_move geeft True voor leeg veld en False voor bezet veld."""
+    spel = TicTacToe()
     with time_limit():
-        # Startpositie: geldige zetten voor X
-        assert spel.is_valid_move(2, 3, "X") is True
-        assert spel.is_valid_move(3, 2, "X") is True
-        assert spel.is_valid_move(4, 5, "X") is True
-        assert spel.is_valid_move(5, 4, "X") is True
-
-        # Ongeldige zetten: bezet veld, buiten bereik, geen flankering
-        assert spel.is_valid_move(3, 3, "X") is False  # bezet
-        assert spel.is_valid_move(0, 0, "X") is False  # geen flankering
-        assert spel.is_valid_move(-1, 0, "X") is False
-        assert spel.is_valid_move(8, 0, "X") is False
+        assert spel.is_valid_move(0, 0) is True
+        spel.board[0][0] = "X"
+        assert spel.is_valid_move(0, 0) is False
+        assert spel.is_valid_move(2, 2) is True
+        assert spel.is_valid_move(-1, 0) is False
+        assert spel.is_valid_move(3, 0) is False
 
 
 # =============== make_move ===============
 
 
 def test_make_move():
-    """make_move plaatst een steen en draait de juiste stenen om."""
-    spel = Othello()
+    """make_move plaatst de speler op de juiste positie."""
+    spel = TicTacToe()
     with time_limit():
-        # Zet X op (2, 3): draait (3, 3) van O naar X
-        spel.make_move(2, 3, "X")
-        assert spel.board[2][3] == "X"
-        assert spel.board[3][3] == "X", "steen op (3,3) moet omgedraaid zijn naar X"
-        assert spel.board[4][4] == "O"
-        assert spel.board[3][4] == "X"
-        assert spel.board[4][3] == "X"
-# =============== opponent ===============
+        spel.make_move(0, 0, "X")
+        assert spel.board[0][0] == "X"
+        spel.make_move(1, 1, "O")
+        assert spel.board[1][1] == "O"
+        spel.make_move(2, 2, "X")
+        assert spel.board[2][2] == "X"
 
 
-def test_opponent():
-    """opponent geeft de juiste tegenstander."""
-    spel = Othello()
+# =============== check_winner ===============
+
+
+def test_check_winner_rijen():
+    """Een rij van X of O wordt als winnaar herkend."""
     with time_limit():
-        spel.player = "X"
-        assert spel.opponent() == "O"
-        spel.player = "O"
-        assert spel.opponent() == "X"
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (0, 2): "X"})
+        assert spel.check_winner() == "X"
+
+        spel = _maak_bord({(1, 0): "O", (1, 1): "O", (1, 2): "O"})
+        assert spel.check_winner() == "O"
 
 
-# =============== count_pieces ===============
-
-
-def test_count_pieces():
-    """count_pieces geeft de correcte aantallen."""
-    spel = Othello()
+def test_check_winner_kolommen():
+    """Een kolom van X of O wordt als winnaar herkend."""
     with time_limit():
-        x, o = spel.count_pieces()
-        assert x == 2, f"start X = 2, kreeg {x}"
-        assert o == 2, f"start O = 2, kreeg {o}"
+        spel = _maak_bord({(0, 1): "X", (1, 1): "X", (2, 1): "X"})
+        assert spel.check_winner() == "X"
+
+        spel = _maak_bord({(0, 2): "O", (1, 2): "O", (2, 2): "O"})
+        assert spel.check_winner() == "O"
 
 
-# =============== valid_moves ===============
-
-
-def test_valid_moves_start():
-    """valid_moves geeft 4 geldige zetten voor X en 4 voor O op startbord."""
-    spel = Othello()
+def test_check_winner_diagonalen():
+    """Diagonalen van X of O worden als winnaar herkend."""
     with time_limit():
-        x_zetten = spel.valid_moves("X")
-        assert len(x_zetten) == 4, f"X moet 4 geldige zetten hebben, kreeg {len(x_zetten)}"
-        for zet in x_zetten:
-            assert spel.is_valid_move(zet[0], zet[1], "X") is True
+        spel = _maak_bord({(0, 0): "X", (1, 1): "X", (2, 2): "X"})
+        assert spel.check_winner() == "X"
 
-        o_zetten = spel.valid_moves("O")
-        assert len(o_zetten) == 4, f"O moet 4 geldige zetten hebben, kreeg {len(o_zetten)}"
+        spel = _maak_bord({(0, 2): "O", (1, 1): "O", (2, 0): "O"})
+        assert spel.check_winner() == "O"
 
 
-# =============== random_move ===============
-
-
-def test_random_move():
-    """random_move geeft een geldige zet terug."""
-    spel = Othello()
+def test_check_winner_geen_winnaar():
+    """Zonder drie op een rij geeft check_winner None."""
     with time_limit():
-        # Meerdere keren testen voor consistentie
-        for _ in range(10):
-            zet = spel.random_move()
-            assert zet is not None, "random_move mag None niet teruggeven"
-            assert len(zet) == 2, f"random_move moet (rij, kol) tuple geven, kreeg {zet}"
-            r, c = zet
-            assert 0 <= r < 8 and 0 <= c < 8, f"zet ({r},{c}) is buiten het bord"
-            assert spel.is_valid_move(r, c, "X") is True, (
-                f"random_move gaf ongeldige zet ({r},{c})"
-            )
+        spel = TicTacToe()
+        assert spel.check_winner() is None
+
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (1, 1): "O"})
+        assert spel.check_winner() is None
 
 
-# =============== evaluate ===============
+# =============== is_draw ===============
 
 
-def test_evaluate():
-    """evaluate geeft een numerieke score terug voor een speler."""
-    spel = Othello()
+def test_is_draw():
+    """is_draw geeft True als het bord vol is zonder winnaar."""
     with time_limit():
-        score_x = spel.evaluate("X")
-        score_o = spel.evaluate("O")
+        bezet = {
+            (0, 0): "X", (0, 1): "O", (0, 2): "X",
+            (1, 0): "O", (1, 1): "X", (1, 2): "O",
+            (2, 0): "O", (2, 1): "X", (2, 2): "O",
+        }
+        spel = _maak_bord(bezet)
+        assert spel.is_draw() is True, "vol bord zonder winnaar is gelijkspel"
 
-        # Moet een getal zijn (int of float)
-        assert isinstance(score_x, (int, float)), "evaluate moet een getal teruggeven"
-        assert isinstance(score_o, (int, float)), "evaluate moet een getal teruggeven"
+        spel2 = TicTacToe()
+        assert spel2.is_draw() is False
 
-        # Nadat X een zet doet, moet X een hogere score hebben
-        spel.make_move(2, 3, "X")
-        score_x_na = spel.evaluate("X")
-        score_o_na = spel.evaluate("O")
-        assert score_x_na != score_o_na or abs(score_x_na - score_o_na) > 0.5, (
-            "evaluate moet een verschil zien na een zet"
-        )
+
+# =============== possible_moves ===============
+
+
+def test_possible_moves():
+    """possible_moves geeft de juiste lijst van lege velden."""
+    with time_limit():
+        spel = TicTacToe()
+        zetten = spel.possible_moves()
+        assert len(zetten) == 9
+
+        spel.board[0][0] = "X"
+        zetten = spel.possible_moves()
+        assert len(zetten) == 8
+        assert (0, 0) not in zetten
+        assert (0, 1) in zetten
+
+
+# =============== undo_move ===============
+
+
+def test_undo_move():
+    """undo_move herstelt een leeg veld op de gegeven positie."""
+    spel = TicTacToe()
+    spel.board[0][0] = "X"
+    with time_limit():
+        spel.undo_move(0, 0)
+    assert spel.board[0][0] == " ", "undo_move moet het veld leeg maken"
 
 
 # =============== minimax ===============
 
 
-def test_minimax_diepte_0():
-    """minimax met depth=0 geeft de evaluate-score terug."""
-    spel = Othello()
+def test_minimax_basis_scores():
+    """minimax geeft correcte scores: 1 voor X-winst, -1 voor O-winst, 0."""
     with time_limit():
-        # Depth=0 is bladknoop, moet evaluate() oproepen
-        score = spel.minimax(0, True, "X")
-        eval_score = spel.evaluate("X")
-        assert score == eval_score, (
-            f"minimax depth=0 moet evaluate(X) geven ({eval_score}), kreeg {score}"
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (0, 2): "X"})
+        score = spel.minimax(0, True)
+        assert score == 1
+
+        spel = _maak_bord({(1, 0): "O", (1, 1): "O", (1, 2): "O"})
+        score = spel.minimax(0, True)
+        assert score == -1
+
+        bezet = {
+            (0, 0): "X", (0, 1): "O", (0, 2): "X",
+            (1, 0): "O", (1, 1): "X", (1, 2): "O",
+            (2, 0): "O", (2, 1): "X", (2, 2): "O",
+        }
+        spel = _maak_bord(bezet)
+        score = spel.minimax(0, True)
+        assert score == 0
+
+
+def test_minimax_forceert_win():
+    """minimax ziet dat X in één zet kan winnen (forceren)."""
+    with time_limit():
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (1, 0): "O"})
+        score = spel.minimax(0, True)
+    assert score == 1, "X moet kunnen winnen, minimax-score = 1"
+
+
+def test_minimax_alpha_beta_gelijk():
+    """minimax met alpha-beta geeft dezelfde score als minimax zonder."""
+    scenario_borden = [
+        {(0, 0): "X", (0, 1): "X", (1, 0): "O"},
+        {(0, 0): "O", (0, 1): "O", (1, 0): "X"},
+        {(1, 1): "X", (0, 0): "O"},
+        {(0, 0): "X", (1, 1): "O", (2, 2): "X"},
+    ]
+    for bezetting in scenario_borden:
+        with time_limit():
+            spel = _maak_bord(bezetting)
+            score_plain = spel.minimax(0, True)
+            spel2 = _maak_bord(bezetting)
+            score_alphabeta = spel2.minimax(0, True,
+                                            alpha=float("-inf"),
+                                            beta=float("inf"))
+        assert score_alphabeta == score_plain, (
+            f"alpha-beta ({score_alphabeta}) verschilt van gewone minimax "
+            f"({score_plain}) voor bord {bezetting}"
         )
 
-        score = spel.minimax(0, True, "O")
-        eval_score = spel.evaluate("O")
-        assert score == eval_score, (
-            f"minimax depth=0 moet evaluate(O) geven ({eval_score}), kreeg {score}"
-        )
 
-
-def test_minimax_simuleert_zetten():
-    """minimax simuleert zetten en wijzigt het bord niet permanent."""
-    spel = Othello()
+def test_minimax_depthlimit():
+    """Bij de maximale diepte wordt 0 gegeven; terminale staten winnen."""
     with time_limit():
-        # Onthoud de starttoestand
-        bord_voor = [rij[:] for rij in spel.board]
+        # Leeg bord met max_depth=2: alle bladeren zijn 0
+        spel = TicTacToe()
+        assert spel.minimax(0, True, max_depth=2) == 0
 
-        # Roep minimax aan met depth=1 (moet zetten simuleren)
-        score = spel.minimax(1, True, "X")
+        # Terminale staten worden nog steeds herkend ondanks de dieptegrens
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (0, 2): "X"})
+        assert spel.minimax(0, True, max_depth=2) == 1
 
-        # Bord mag niet gewijzigd zijn
-        for r in range(8):
-            for c in range(8):
-                assert spel.board[r][c] == bord_voor[r][c], (
-                    f"minimax mag het bord niet wijzigen, veld ({r},{c}) veranderd"
-                )
+        spel = _maak_bord({(1, 0): "O", (1, 1): "O", (1, 2): "O"})
+        assert spel.minimax(0, True, max_depth=2) == -1
 
-        # Score moet een getal zijn
-        assert isinstance(score, (int, float)), "minimax moet een getal teruggeven"
-
-
-# =============== best_move ===============
+        # Een niet-terminale staat op diepte 0 met max_depth=0
+        spel = _maak_bord({(0, 0): "X", (1, 0): "O"})
+        assert spel.minimax(0, True, max_depth=0) == 0
 
 
-def test_best_move():
-    """best_move geeft een geldige zet terug."""
-    spel = Othello()
+# =============== find_best_move ===============
+
+
+def test_find_best_move_wint():
+    """find_best_move kiest een winnende zet als die er is."""
     with time_limit():
-        zet = spel.best_move()
-        assert zet is not None, "best_move mag None niet teruggeven"
-        assert len(zet) == 2, f"best_move moet (rij, kol) tuple geven, kreeg {zet}"
-        r, c = zet
-        assert 0 <= r < 8 and 0 <= c < 8, f"zet ({r},{c}) is buiten het bord"
-        assert spel.is_valid_move(r, c, "X") is True, (
-            f"best_move gaf ongeldige zet ({r},{c}) voor X"
-        )
+        spel = _maak_bord({(0, 0): "X", (0, 1): "X", (1, 0): "O"})
+        zet = spel.find_best_move()
+    assert zet is not None, "er moet een zet gekozen worden"
+    assert zet == (0, 2), f"verwacht winnende zet (0,2), kreeg {zet}"
+
+
+def test_find_best_move_blokkeert():
+    """find_best_move blokkeert de tegenstander als die bijna wint."""
+    with time_limit():
+        spel = _maak_bord({(0, 0): "O", (0, 1): "O", (1, 0): "X"})
+        zet = spel.find_best_move()
+    assert zet is not None, "er moet een zet gekozen worden"
+    assert zet == (0, 2), f"verwacht blokkerende zet (0,2), kreeg {zet}"
