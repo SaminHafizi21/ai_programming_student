@@ -8,7 +8,7 @@
   },
   // mounts are needed to make ssh keys available with correct permissions
   "mounts": [
-    "source=${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached" 
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/root/.ssh,type=bind,consistency=cached" 
   ],
   "updateContentCommand": "uv sync",
   // git is installed, the git config files reed the right permissions to work with ssh keys
