@@ -7,6 +7,8 @@ Test de publieke interface van de oplossing van de student:
 - MontyHallGame: choose_door, host_reveal, switch_choice,
   is_player_winner, play_game
 - expectimax_simulation
+- TicTacToe: make_move, evaluate, copy, minimax (expectimax met
+  chance-knopen), find_best_move, random_move
 
 De tests controleren enkel gedrag, niet hoe het geïmplementeerd is.
 Studentencode die crasht of infinite loopt wordt netjes afgehandeld.
@@ -26,6 +28,7 @@ try:
     Othello = _mod.Othello
     MontyHallGame = _mod.MontyHallGame
     expectimax_simulation = _mod.expectimax_simulation
+    TicTacToe = _mod.TicTacToe
 except Exception as import_error:
     pytest.skip(
         f"solution.py kon niet geïmporteerd worden: {import_error}",
@@ -51,6 +54,17 @@ WEIGHTS = {
     "test_montyhall_play_game": 1,
     "test_montyhall_winrate_switch": 2,
     "test_montyhall_winrate_geen_switch": 2,
+    "test_tictactoe_bord_init": 1,
+    "test_tictactoe_make_move": 1,
+    "test_tictactoe_evaluate": 2,
+    "test_tictactoe_copy": 1,
+    "test_tictactoe_minimax_diepte_0": 1,
+    "test_tictactoe_minimax_wint": 2,
+    "test_tictactoe_minimax_wijzigt_bord_niet": 2,
+    "test_tictactoe_find_best_move_wint": 2,
+    "test_tictactoe_find_best_move_blokkeert": 2,
+    "test_tictactoe_random_move_geldig": 1,
+    "test_tictactoe_chance_gemiddelde": 3,
 }
 
 
@@ -356,5 +370,175 @@ def test_montyhall_winrate_geen_switch():
         winrate = expectimax_simulation(switch=False, num_simulations=5000)
     assert 1 / 3 - 0.06 < winrate < 1 / 3 + 0.06, (
         f"verwacht een winrate rond 1/3, kreeg {winrate:.4f}"
+    )
+
+
+# =============== TicTacToe met Expectimax ===============
+
+
+def test_tictactoe_bord_init():
+    """TicTacToe start met een leeg 3x3-bord en X aan zet."""
+    spel = TicTacToe()
+    with time_limit():
+        assert len(spel.board) == 3, "bord moet 3 rijen hebben"
+        for rij in spel.board:
+            assert len(rij) == 3, "elke rij moet 3 kolommen hebben"
+            assert all(cel == " " for cel in rij), "bord moet leeg starten"
+        assert spel.xTurn is True, "X moet beginnen"
+
+
+def test_tictactoe_make_move():
+    """make_move plaatst enkel op geldige, vrije velden en houdt de beurt bij."""
+    spel = TicTacToe()
+    with time_limit():
+        assert spel.make_move(0, 0, "X") is True
+        assert spel.board[0][0] == "X"
+        assert spel.xTurn is False, "na X is O aan zet"
+
+        # Verkeerde speler mag niet zetten
+        assert spel.make_move(0, 1, "X") is False, "X is niet meer aan zet"
+        # Bezet veld afgewezen
+        assert spel.make_move(0, 0, "O") is False, "veld is bezet"
+        # Buiten het bord
+        assert spel.make_move(3, 0, "O") is False, "(3,0) is buiten het bord"
+
+
+def test_tictactoe_evaluate():
+    """evaluate geeft 1 (X wint), -1 (O wint) of 0 (geen winnaar)."""
+    # Rij met drie X-en
+    spel = TicTacToe()
+    spel.board = [["X", "X", "X"], [" ", " ", " "], [" ", " ", " "]]
+    with time_limit():
+        assert spel.evaluate() == 1, "drie X op een rij moet score 1 geven"
+
+        # Kolom met drie O-en
+        spel2 = TicTacToe()
+        spel2.board = [[" ", "O", " "], [" ", "O", " "], [" ", "O", " "]]
+        assert spel2.evaluate() == -1, "drie O op een rij moet score -1 geven"
+
+        # Diagonaal met X
+        spel3 = TicTacToe()
+        spel3.board = [["X", " ", " "], [" ", "X", " "], [" ", " ", "X"]]
+        assert spel3.evaluate() == 1, "diagonaal met X moet score 1 geven"
+
+        # Geen winnaar
+        spel4 = TicTacToe()
+        assert spel4.evaluate() == 0, "leeg bord heeft score 0"
+
+
+def test_tictactoe_copy():
+    """copy maakt een onafhankelijke kopie van het spel."""
+    spel = TicTacToe()
+    spel.board[0][0] = "X"
+    with time_limit():
+        kopie = spel.copy()
+        kopie.board[0][0] = "O"
+        assert spel.board[0][0] == "X", "bord van het origineel mag niet wijzigen"
+        assert kopie.board[0][0] == "O", "kopie krijgt eigen bord"
+
+
+def test_tictactoe_minimax_diepte_0():
+    """minimax met depth=0 geeft de evaluate-score terug."""
+    spel = TicTacToe()
+    with time_limit():
+        assert spel.minimax(0, True) == 0
+        assert spel.minimax(0, False) == 0
+
+
+def test_tictactoe_minimax_wint():
+    """minimax herkent een gewonnen staat voor X en geeft 1 terug."""
+    spel = TicTacToe()
+    spel.board = [["X", "X", "X"], [" ", " ", " "], [" ", " ", " "]]
+    with time_limit():
+        assert spel.minimax(5, True) == 1, "X heeft gewonnen, score moet 1 zijn"
+        assert spel.minimax(5, False) == 1, "terminal staat geeft 1"
+
+
+def test_tictactoe_minimax_wijzigt_bord_niet():
+    """minimax simuleert zetten op een kopie en wijzigt het bord niet."""
+    spel = TicTacToe()
+    with time_limit():
+        bord_voor = [rij[:] for rij in spel.board]
+        score = spel.minimax(6, True)
+        assert isinstance(score, (int, float)), "minimax moet een getal geven"
+        for r in range(3):
+            for c in range(3):
+                assert spel.board[r][c] == bord_voor[r][c], (
+                    f"minimax mag het bord niet wijzigen, veld ({r},{c}) veranderd"
+                )
+
+
+def test_tictactoe_find_best_move_wint():
+    """find_best_move kiest de zet waarmee X direct wint."""
+    spel = TicTacToe()
+    # X kan (0, 2) zetten en wint de bovenste rij
+    spel.board = [["X", "X", " "], [" ", "O", " "], [" ", " ", " "]]
+    with time_limit():
+        zet = spel.find_best_move()
+        assert zet == (0, 2), (
+            f"verwacht winnende zet (0, 2), kreeg {zet}"
+        )
+
+
+def test_tictactoe_find_best_move_blokkeert():
+    """find_best_move blokkeert een gereed liggende winnende zet van O."""
+    spel = TicTacToe()
+    # O dreigt rij 0 te winnen; X moet (0, 2) blokkeren om te verhinderen
+    spel.board = [["O", "O", " "], ["X", " ", " "], [" ", " ", " "]]
+    with time_limit():
+        zet = spel.find_best_move()
+        assert zet == (0, 2), (
+            f"verwacht blokkerende zet (0, 2), kreeg {zet}"
+        )
+
+
+def test_tictactoe_random_move_geldig():
+    """random_move geeft altijd een leeg veld binnen het bord terug."""
+    spel = TicTacToe()
+    with time_limit():
+        for _ in range(20):
+            zet = spel.random_move()
+            assert len(zet) == 2, f"random_move moet (rij, kol) geven, kreeg {zet}"
+            r, c = zet
+            assert 0 <= r < 3 and 0 <= c < 3, f"zet ({r},{c}) is buiten het bord"
+            assert spel.board[r][c] == " ", f"veld ({r},{c}) moet leeg zijn"
+
+
+def test_tictactoe_chance_gemiddelde():
+    """Een chance-knoop neemt het gemiddelde over alle willekeurige zetten.
+
+    De waarde van een chance-knoop moet gelijk zijn aan het gemiddelde van
+    de waarden van elke willekeurige zet van de tegenstander. We vergelijken
+    ``minimax`` met ``is_chance=True`` tegen dat gemiddelde, berekend door
+    elke O-zet afzonderlijk te bekijken. Een foute implementatie die op een
+    chance-knoop ``min`` of ``max`` gebruikt in plaats van het gemiddelde
+    zou deze test doen falen.
+    """
+    spel = TicTacToe()
+    spel.board = [
+        ["X", " ", "X"],
+        [" ", "O", " "],
+        [" ", " ", " "],
+    ]
+
+    with time_limit():
+        kanswaarde = spel.minimax(6, False, is_chance=True)
+
+        # Het gemiddelde over elke willekeurige O-zet op depth 5
+        total = 0.0
+        aantal = 0
+        for r in range(3):
+            for c in range(3):
+                if spel.board[r][c] == " ":
+                    kopie = spel.copy()
+                    kopie.board[r][c] = "O"
+                    total += kopie.minimax(5, True, is_chance=False)
+                    aantal += 1
+        verwacht = total / aantal
+
+    assert aantal == 6, "er horen 6 lege velden te zijn voor O"
+    assert kanswaarde == pytest.approx(verwacht, abs=1e-9), (
+        "chance-knoop moet het gemiddelde over alle O-zetten nemen, "
+        f"kreeg {kanswaarde}, verwacht {verwacht}"
     )
 
