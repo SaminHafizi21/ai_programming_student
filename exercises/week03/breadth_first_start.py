@@ -3,6 +3,7 @@ Oefening 2: Breadth-First Search
 =================================
 Implementeer BFS met backward printing van het pad.
 """
+
 from collections import deque
 
 
@@ -23,7 +24,36 @@ class Node:
 def breadth_first_search(initial_node, goal_state):
     # TODO: implementeer BFS met een queue
     # HINT: gebruik parent-tracking om het pad te reconstrueren
-    pass
+
+    frontier = deque([initial_node])
+    visited = {initial_node}
+    parent: dict = {initial_node: None}
+
+    if initial_node.state.name == goal_state.name:
+        return [initial_node.state]
+
+    while frontier:
+        current_node = frontier.popleft()
+
+        visited.add(current_node)
+
+        for kind in current_node.actions:
+            if kind in visited or kind in parent:
+                continue
+
+            parent[kind] = current_node
+
+            if kind.state.name == goal_state.name:
+                pad = []
+                stap = kind
+                while parent[stap] is not None:
+                    stap = parent[stap]
+                    pad.append(stap)
+                pad.reverse()
+                return pad
+
+            frontier.append(kind)
+    return None
 
 
 def print_path(parent, goal_node):

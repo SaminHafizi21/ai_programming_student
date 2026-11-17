@@ -3,6 +3,7 @@ Oefening 2: Sliding Puzzle (8-puzzle)
 ======================================
 Implementeer de sliding puzzle en los hem op met BFS/DFS.
 """
+
 import numpy as np
 
 
@@ -10,18 +11,28 @@ class SlidingPuzzle:
     GRIDSIZE = 3
     EMPTY = 0
 
-    GOAL = [
-        [1, 2, 3],
-        [4, 5, 6],
-        [7, 8, 0]
-    ]
+    GOAL = [[1, 2, 3], [4, 5, 6], [7, 8, 0]]
 
     def __init__(self, game):
         self.Game = np.array(game)
 
     def possible_new_configurations(self):
-        # TODO: geef alle nieuwe configuraties door het lege vakje te verschuiven
-        return []
+
+        config = []
+        row, col = self.locate_empty()
+
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            r = row + dr
+            c = col + dc
+
+            if (r < self.GRIDSIZE and r >= 0) and (c < self.GRIDSIZE and c >= 0):
+                nieuw = self.duplicate()
+                nieuw.Game[row][col] = nieuw.Game[r][c]
+                nieuw.Game[r][c] = self.EMPTY
+
+                config.append(nieuw)
+
+        return config
 
     def locate_empty(self):
         for row in range(self.GRIDSIZE):
@@ -38,7 +49,12 @@ class SlidingPuzzle:
         return np.array_equal(self.Game, self.GOAL)
 
     def duplicate(self):
-        return SlidingPuzzle([[self.Game[r][c] for c in range(self.GRIDSIZE)] for r in range(self.GRIDSIZE)])
+        return SlidingPuzzle(
+            [
+                [self.Game[r][c] for c in range(self.GRIDSIZE)]
+                for r in range(self.GRIDSIZE)
+            ]
+        )
 
     def log(self):
         print("---")
@@ -49,18 +65,25 @@ class SlidingPuzzle:
 
 def solve_puzzle(start_puzzle):
     # TODO: los de puzzel op met BFS
-    pass
+    # pass
+    if start_puzzle.is_goal():
+        return [start_puzzle]
+
+    frontier = {[start_puzzle]}
+    nodes = {}
 
 
 if __name__ == "__main__":
-    game = [
-        [1, 2, 3],
-        [4, 5, 0],
-        [7, 8, 6]
-    ]
+    game = [[1, 2, 3], [4, 5, 0], [7, 8, 6]]
     puzzle = SlidingPuzzle(game)
     print("Startconfiguratie:")
     puzzle.log()
 
     # oplossing = solve_puzzle(puzzle)
     # print("Oplossing:", oplossing)
+
+    puzzle.possible_new_configurations()
+
+
+# bfs fifo
+# dfs lifo

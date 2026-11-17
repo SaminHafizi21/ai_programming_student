@@ -12,6 +12,7 @@ De agent moet:
 4. Als de betrouwbare hoogtemeter daalt: een correctie aanvragen
    (actuator).
 """
+
 from typing import Optional
 
 
@@ -64,37 +65,37 @@ class FaultTolerantAgent:
         - Is er geen vorige waarde (eerste meetslag)? -> kies
           bij voorkeur sensor a.
         """
-        # TODO: implementeer dit 
+        # TODO: implementeer dit
 
-        if abs(a - b) < self.TOLERANCE : 
+        if abs(a - b) < self.TOLERANCE:
             # betrouwbaar
             self.suspected_sensor = None
-            return (a+b)/2
+            return (a + b) / 2
         else:
             # er is een niet betrouwbare sensor
             if abs(a - self.previous_value) < abs(b - self.previous_value):
-                self.suspected_sensor = 'b'
-                return 'a'
+                self.suspected_sensor = "b"
+                return "a"
             else:
-                self.suspected_sensor = 'a'
-                return 'b'
-
-
+                self.suspected_sensor = "a"
+                return "b"
 
     def process(self, p: Reading):
         # TODO: kies de betrouwbare meting, bepaal de trend (delta t.o.v.
         #       de vorige waarde) en vraag correctie aan als de daling
         #       sneller is dan DESCENT_LIMIT. Vergeet de interne state
         #       niet bij te werken.
-        a,b = self.read_all()
-        reliable_value = self.reliable_value(a,b)
+        a, b = self.read_all(p)
+        reliable_value = self.reliable_value(a, b)
 
-        #eerste keer: self.previous = None
+        # eerste keer: self.previous = None
         if self.previous_value is None:
             self.previous_value = reliable_value
             return Nothing()
 
-        delta = reliable_value - self.previous_value # bij daling wil je een negatief getal
+        delta = (
+            reliable_value - self.previous_value
+        )  # bij daling wil je een negatief getal
         self.previous_value = reliable_value
         if delta < self.DESCENT_LIMIT:
             return Correct()
@@ -104,13 +105,13 @@ class FaultTolerantAgent:
 if __name__ == "__main__":
     # Vluchtprofiel: klim, cruise, daal. Sensor A valt uit bij stap 4.
     vlucht = [
-        Reading(1000, 1000),   # beide ok
-        Reading(1020, 1025),   # beide ok, stijgende trend
-        Reading(1050, 1048),   # beide ok
-        Reading(1055, 600),    # sensor B stuk (of is het A?)
-        Reading(1040, 100),    # sensor B blijft onzin
-        Reading(1020, 50),     # daling wordt nu zichtbaar via A
-        Reading(1000, 30),     # dalende trend -> correctie nodig
+        Reading(1000, 1000),  # beide ok
+        Reading(1020, 1025),  # beide ok, stijgende trend
+        Reading(1050, 1048),  # beide ok
+        Reading(1055, 600),  # sensor B stuk (of is het A?)
+        Reading(1040, 100),  # sensor B blijft onzin
+        Reading(1020, 50),  # daling wordt nu zichtbaar via A
+        Reading(1000, 30),  # dalende trend -> correctie nodig
     ]
 
     agent = FaultTolerantAgent()

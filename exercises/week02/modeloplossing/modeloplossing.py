@@ -7,6 +7,7 @@ Oefening 3: Routeplanner (utility-based agent)
 Oefening 4: Breadth-First Search
 Oefening 5: Sliding Puzzle
 """
+
 from collections import deque
 from typing import Optional
 
