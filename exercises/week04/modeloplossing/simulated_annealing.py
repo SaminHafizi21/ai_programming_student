@@ -28,8 +28,10 @@ class TSPSolver:
 
         for _ in range(self.num_iterations):
             i, j = random.sample(range(self.num_cities), 2) # twee steden kiezen om te verwisselen
+            
             new_tour = current_tour.copy()
             new_tour[i], new_tour[j] = new_tour[j], new_tour[i] # twee steden effectief verwisselen
+            
             new_distance = self.total_distance(new_tour)
             delta = new_distance - current_distance
 
