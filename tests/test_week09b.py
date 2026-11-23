@@ -5,6 +5,7 @@ Test de publieke interface van de oplossing van de student:
 - maaltijd_matrices: zet een kostenfunctie om naar P en q
 - optimize_meal: berekent de optimale hoeveelheden per ingrediënt
 - PortfolioOptimizer: minimaliseert het risico van een portefeuille
+- verdeling_matrices / optimaliseer_verdeling: verdeling met 5 variabelen
 
 De tests controleren enkel gedrag, niet hoe het geïmplementeerd is.
 """
@@ -23,6 +24,8 @@ try:
     maaltijd_matrices = _mod.maaltijd_matrices
     optimize_meal = _mod.optimize_meal
     PortfolioOptimizer = _mod.PortfolioOptimizer
+    verdeling_matrices = _mod.verdeling_matrices
+    optimaliseer_verdeling = _mod.optimaliseer_verdeling
 except Exception as import_error:
     pytest.skip(
         f"solution.py kon niet geïmporteerd worden: {import_error}",
@@ -40,6 +43,12 @@ WEIGHTS = {
     "test_portfolio_bereik": 2,
     "test_portfolio_deterministisch": 1,
     "test_portfolio_gelijkgewicht_diagonaal": 2,
+    "test_verdeling_matrices_P": 1,
+    "test_verdeling_matrices_q": 1,
+    "test_optimaliseer_verdeling_vorm": 1,
+    "test_optimaliseer_verdeling_resultaat": 2,
+    "test_optimaliseer_verdeling_som": 2,
+    "test_optimaliseer_verdeling_grenzen": 2,
 }
 
 
@@ -188,4 +197,73 @@ def test_portfolio_gelijkgewicht_diagonaal():
     for waarde in w:
         assert abs(float(waarde) - 1.0 / 3.0) < 1e-3, (
             "symmetrisch probleem geeft gelijke gewichten"
+        )
+
+
+# --- Oefening 6: Trainingstijd (5 variabelen) ---
+
+DOELEN_6 = np.array([8, 6, 5, 6, 5])
+GRENZEN_6 = [(0.0, 10.0)] * 5
+
+
+def test_verdeling_matrices_P():
+    """P is 2 * I, want elke afstand tot een doel telt apart."""
+    with time_limit():
+        P, _ = verdeling_matrices(DOELEN_6)
+    verwacht = 2.0 * np.identity(5)
+    assert np.allclose(P, verwacht, atol=1e-9), (
+        "P wijkt af van 2 * I voor een verdeling met losse doelen"
+    )
+
+
+def test_verdeling_matrices_q():
+    """q is -2 * doelen."""
+    with time_limit():
+        _, q = verdeling_matrices(DOELEN_6)
+    verwacht = -2.0 * DOELEN_6
+    assert np.allclose(q, verwacht, atol=1e-9), (
+        "q wijkt af van -2 * doelen"
+    )
+
+
+def test_optimaliseer_verdeling_vorm():
+    """optimaliseer_verdeling geeft één waarde per variabele (hier 5)."""
+    with time_limit():
+        x = optimaliseer_verdeling(DOELEN_6, GRENZEN_6, 25.0)
+    assert x is not None, "optimaliseer_verdeling mag None niet teruggeven"
+    assert len(x) == 5, f"er zijn 5 disciplines, kreeg {len(x)}"
+    for waarde in x:
+        assert np.isfinite(float(waarde)), "de oplossing bevat geldige getallen"
+
+
+def test_optimaliseer_verdeling_resultaat():
+    """Het tekort van 5 uur wordt evenredig verdeeld over de 5 disciplines."""
+    with time_limit():
+        x = optimaliseer_verdeling(DOELEN_6, GRENZEN_6, 25.0)
+    verwacht = np.array([7, 5, 4, 5, 4])
+    assert np.allclose(x, verwacht, atol=1e-2), (
+        "de optimale verdeling is [7, 5, 4, 5, 4]"
+    )
+
+
+def test_optimaliseer_verdeling_som():
+    """De totale som blijft behouden (gelijkheid)."""
+    with time_limit():
+        x = optimaliseer_verdeling(DOELEN_6, GRENZEN_6, 25.0)
+    som = float(np.sum(x))
+    assert abs(som - 25.0) < 1e-2, (
+        f"de totale som is {som:.4f}, verwacht 25.0"
+    )
+
+
+def test_optimaliseer_verdeling_grenzen():
+    """Elke discipline ligt binnen zijn opgegeven grenzen."""
+    with time_limit():
+        x = optimaliseer_verdeling(DOELEN_6, GRENZEN_6, 25.0)
+    for i, (min_grens, max_grens) in enumerate(GRENZEN_6):
+        assert float(x[i]) >= min_grens - 1e-2, (
+            f"discipline {i} ligt onder de ondergrens {min_grens}"
+        )
+        assert float(x[i]) <= max_grens + 1e-2, (
+            f"discipline {i} ligt boven de bovengrens {max_grens}"
         )
